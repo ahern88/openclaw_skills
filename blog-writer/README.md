@@ -22,11 +22,14 @@ AI 会自动完成所有步骤！
 # 1. 创建文章
 bash scripts/create-post.sh "文章标题"
 
-# 2. 生成 HTML
+# 2. 生成 HTML（含清理缓存）
 bash scripts/generate.sh
 
-# 3. 部署
+# 3. 部署（完整流程：clean + generate + deploy + 同步仓库）
 bash scripts/deploy.sh
+
+# 4. 验证部署状态
+bash scripts/verify-deploy.sh
 ```
 
 ---
@@ -62,6 +65,8 @@ bash scripts/deploy.sh
 
 ## 🔧 命令参考
 
+### AI 对话命令
+
 | 命令 | 说明 | 示例 |
 |------|------|------|
 | `create` | 创建新文章 | `create "文章标题" "内容"` |
@@ -69,6 +74,15 @@ bash scripts/deploy.sh
 | `deploy` | 部署到 GitHub | `deploy` |
 | `list` | 列出所有文章 | `list` |
 | `delete` | 删除文章 | `delete "文章标题"` |
+
+### 命令行脚本
+
+| 脚本 | 说明 | 用法 |
+|------|------|------|
+| `create-post.sh` | 创建新文章 | `bash scripts/create-post.sh "标题"` |
+| `generate.sh` | 清理缓存 + 生成 HTML | `bash scripts/generate.sh` |
+| `deploy.sh` | 完整部署流程 | `bash scripts/deploy.sh` |
+| `verify-deploy.sh` | 验证部署状态 | `bash scripts/verify-deploy.sh` |
 
 ---
 
@@ -159,12 +173,72 @@ git config --global user.name "ahern88"
 git config --global user.email "ahern88@163.com"
 ```
 
-### Q: 文章不显示？
+### Q: 文章发布后看不到？（重要！）
 
-1. 检查 Markdown 是否在 `source/_posts/`
-2. 执行 `hexo clean && hexo generate`
-3. 执行 `hexo deploy`
-4. 等待 GitHub Pages 构建完成（1-2 分钟）
+**这是最常见的问题！** 按以下步骤排查：
+
+#### 步骤 1：清理 Hexo 缓存
+```bash
+cd /home/admin/.openclaw/workspace/ahern88_github_io/blog
+hexo clean && hexo generate
+```
+
+#### 步骤 2：重新部署
+```bash
+hexo deploy
+```
+看到 `Site updated: ...` 表示成功。
+
+#### 步骤 3：同步 Pages 仓库
+```bash
+cd /home/admin/.openclaw/workspace/ahern88.github.io
+git fetch origin
+git reset --hard origin/master
+```
+
+#### 步骤 4：验证部署
+```bash
+# 检查 .deploy_git 的最新提交
+cd /home/admin/.openclaw/workspace/ahern88_github_io/blog/.deploy_git
+git log --oneline -3
+
+# 检查 Pages 仓库
+cd /home/admin/.openclaw/workspace/ahern88.github.io
+ls -la 2026/03/06/  # 查看文章目录是否存在
+```
+
+#### 步骤 5：在线验证
+```bash
+curl -sL "https://ahern88.github.io/" | grep "文章标题"
+```
+
+#### 步骤 6：浏览器缓存
+- 强制刷新：`Ctrl+F5` (Windows) 或 `Cmd+Shift+R` (Mac)
+- 或等待 1-2 分钟 CDN 自动更新
+
+### Q: 如何确认文章已成功发布？
+
+**检查清单：**
+- ✅ `blog/source/_posts/` 有 Markdown 文件
+- ✅ `blog/.deploy_git/` 有最新提交（`git log`）
+- ✅ `ahern88.github.io/` 有对应的 HTML 目录
+- ✅ 在线访问 `https://ahern88.github.io/2026/MM/DD/文章 slug/` 返回 200
+
+### Q: 部署后首页没有新文章？
+
+可能是首页缓存，尝试：
+```bash
+# 重新生成并部署
+cd /home/admin/.openclaw/workspace/ahern88_github_io/blog
+hexo clean
+hexo generate
+hexo deploy
+
+# 同步 Pages 仓库
+cd /home/admin/.openclaw/workspace/ahern88.github.io
+git fetch origin
+git reset --hard origin/master
+```
 
 ---
 

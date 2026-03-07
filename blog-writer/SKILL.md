@@ -135,16 +135,77 @@ blog-writer/
    ↓
 创建/编辑 Markdown (ahern88_github_io/blog/source/_posts/)
    ↓
-Hexo generate
+Hexo clean (清理缓存)
    ↓
-Git commit & push (源文件)
+Hexo generate (生成静态文件)
    ↓
-Hexo deploy (部署到 Pages)
+Git commit & push (源文件到 ahern88_github_io)
    ↓
-GitHub Pages 自动部署
+Hexo deploy (部署到 GitHub Pages)
+   ↓
+同步 ahern88.github.io 仓库 (git reset --hard origin/master)
+   ↓
+GitHub Pages 自动部署 (1-2 分钟)
    ↓
 文章上线！✅
 ```
+
+---
+
+## 🔍 问题排查
+
+### 文章发布后看不到？
+
+**常见原因和解决方案：**
+
+1. **Hexo 缓存问题**
+   ```bash
+   cd /home/admin/.openclaw/workspace/ahern88_github_io/blog
+   hexo clean && hexo generate
+   ```
+
+2. **GitHub Pages 未部署**
+   ```bash
+   hexo deploy
+   ```
+
+3. **本地仓库未同步**
+   ```bash
+   cd /home/admin/.openclaw/workspace/ahern88.github.io
+   git fetch origin
+   git reset --hard origin/master
+   ```
+
+4. **浏览器/CDN 缓存**
+   - 强制刷新：`Ctrl+F5` (Windows) 或 `Cmd+Shift+R` (Mac)
+   - 等待 1-2 分钟 CDN 自动更新
+
+5. **验证部署状态**
+   ```bash
+   # 检查 .deploy_git 最新提交
+   cd /home/admin/.openclaw/workspace/ahern88_github_io/blog/.deploy_git
+   git log --oneline -3
+   
+   # 检查 Pages 仓库
+   cd /home/admin/.openclaw/workspace/ahern88.github.io
+   git log --oneline -3
+   ```
+
+6. **在线验证**
+   ```bash
+   # 检查文章是否可访问
+   curl -sL "https://ahern88.github.io/" | grep "文章标题"
+   ```
+
+### 完整发布检查清单
+
+- [ ] Markdown 文件在 `blog/source/_posts/` 目录
+- [ ] Front-matter 格式正确（title, date, tags）
+- [ ] `hexo clean && hexo generate` 成功
+- [ ] `hexo deploy` 成功（看到 `Site updated: ...`）
+- [ ] `.deploy_git` 有最新提交
+- [ ] `ahern88.github.io` 仓库已同步
+- [ ] 在线访问文章链接正常
 
 ---
 
