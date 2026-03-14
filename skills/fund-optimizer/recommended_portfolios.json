@@ -1,0 +1,105 @@
+{
+  "generated_date": "2026-03-14",
+  "backtest_period": "2019-09-24 to 2026-03-14",
+  "fund_pool_size": 17,
+  "portfolios": [
+    {
+      "name": "平衡型（推荐）",
+      "type": "balanced",
+      "score": 1.120,
+      "funds": {
+        "000216": {"name": "华安黄金 ETF 联接 A", "weight": 0.211, "category": "commodity"},
+        "002943": {"name": "广发多因子混合", "weight": 0.140, "category": "equity"},
+        "166301": {"name": "华商新趋势混合", "weight": 0.140, "category": "equity"},
+        "004011": {"name": "华泰柏瑞鼎利混合 C", "weight": 0.140, "category": "equity"},
+        "110017": {"name": "易方达增强回报债券 A", "weight": 0.132, "category": "bond"},
+        "217022": {"name": "招商产业债券 A", "weight": 0.132, "category": "bond"},
+        "006373": {"name": "国富全球科技互联 (QDII)", "weight": 0.105, "category": "qdii"}
+      },
+      "metrics": {
+        "cagr": 0.1564,
+        "max_drawdown": -0.0887,
+        "volatility": 0.0930,
+        "sharpe_ratio": 1.36,
+        "calmar_ratio": 1.76,
+        "total_return": 1.4597,
+        "final_value": 2460000
+      },
+      "allocation": {
+        "equity": 0.420,
+        "bond": 0.264,
+        "commodity": 0.211,
+        "qdii": 0.105
+      }
+    },
+    {
+      "name": "进取型",
+      "type": "aggressive",
+      "score": 0.961,
+      "funds": {
+        "000216": {"name": "华安黄金 ETF 联接 A", "weight": 0.166, "category": "commodity"},
+        "002943": {"name": "广发多因子混合", "weight": 0.153, "category": "equity"},
+        "166301": {"name": "华商新趋势混合", "weight": 0.153, "category": "equity"},
+        "004011": {"name": "华泰柏瑞鼎利混合 C", "weight": 0.153, "category": "equity"},
+        "165531": {"name": "中信保诚多策略混合", "weight": 0.153, "category": "equity"},
+        "006373": {"name": "国富全球科技互联 (QDII)", "weight": 0.111, "category": "qdii"},
+        "110017": {"name": "易方达增强回报债券 A", "weight": 0.111, "category": "bond"}
+      },
+      "metrics": {
+        "cagr": 0.1739,
+        "max_drawdown": -0.1325,
+        "volatility": 0.1100,
+        "sharpe_ratio": 1.29,
+        "calmar_ratio": 1.31,
+        "total_return": 1.700,
+        "final_value": 2700000
+      },
+      "allocation": {
+        "equity": 0.612,
+        "bond": 0.111,
+        "commodity": 0.166,
+        "qdii": 0.111
+      }
+    },
+    {
+      "name": "保守型",
+      "type": "conservative",
+      "score": 0.908,
+      "funds": {
+        "000216": {"name": "华安黄金 ETF 联接 A", "weight": 0.200, "category": "commodity"},
+        "002943": {"name": "广发多因子混合", "weight": 0.150, "category": "equity"},
+        "166301": {"name": "华商新趋势混合", "weight": 0.150, "category": "equity"},
+        "110017": {"name": "易方达增强回报债券 A", "weight": 0.133, "category": "bond"},
+        "217022": {"name": "招商产业债券 A", "weight": 0.133, "category": "bond"},
+        "004993": {"name": "中欧可转债债券 A", "weight": 0.133, "category": "bond"},
+        "006373": {"name": "国富全球科技互联 (QDII)", "weight": 0.100, "category": "qdii"}
+      },
+      "metrics": {
+        "cagr": 0.1544,
+        "max_drawdown": -0.1171,
+        "volatility": 0.1100,
+        "sharpe_ratio": 1.16,
+        "calmar_ratio": 1.32,
+        "total_return": 1.433,
+        "final_value": 2433000
+      },
+      "allocation": {
+        "equity": 0.300,
+        "bond": 0.399,
+        "commodity": 0.200,
+        "qdii": 0.100
+      }
+    }
+  ],
+  "recommendation": {
+    "best_overall": "balanced",
+    "best_return": "aggressive",
+    "lowest_risk": "conservative",
+    "notes": [
+      "所有组合 QDII 占比控制在 10-11%，考虑限购因素",
+      "基金数量控制在 7 只，便于管理",
+      "平衡型组合夏普比率最高 (1.36)，风险收益比最优",
+      "进取型收益最高 (17.39%)，但回撤也最大 (13.25%)"
+    ]
+  }
+}
