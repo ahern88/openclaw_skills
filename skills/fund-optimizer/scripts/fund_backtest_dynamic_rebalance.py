@@ -190,24 +190,23 @@ class DynamicRebalanceBacktester:
             # 检查是否需要再平衡
             need_rebalance = False
             rebalance_reason = ""
+            days_since_last = (date - last_rebalance_date).days
             
-            # 1. 检查年度再平衡
-            if date in annual_dates and date > last_rebalance_date:
+            # 1. 先检查阈值再平衡（至少间隔 5 个交易日）
+            if days_since_last >= 5:
+                need, deviation = self.check_threshold_rebalance(current_weights, i)
+                if need:
+                    need_rebalance = True
+                    max_dev_fund = self.fund_codes[np.argmax(deviation)]
+                    rebalance_reason = "阈值平衡 ({} 偏离{:.1f}%)".format(
+                        max_dev_fund, np.max(deviation)*100)
+                    threshold_count += 1
+            
+            # 2. 再检查年度再平衡（优先级更高，覆盖阈值）
+            if date in annual_dates and date > last_rebalance_date and not need_rebalance:
                 need_rebalance = True
                 rebalance_reason = "年度平衡"
                 annual_count += 1
-            
-            # 2. 检查阈值再平衡（至少间隔 5 个交易日，避免过度交易）
-            elif date > last_rebalance_date:
-                need, deviation = self.check_threshold_rebalance(current_weights, i)
-                if need:
-                    days_since_last = (date - last_rebalance_date).days
-                    if days_since_last >= 5:
-                        need_rebalance = True
-                        max_dev_fund = self.fund_codes[np.argmax(deviation)]
-                        rebalance_reason = "阈值平衡 ({} 偏离{:.1f}%)".format(
-                            max_dev_fund, np.max(deviation)*100)
-                        threshold_count += 1
             
             # 执行再平衡
             if need_rebalance:
