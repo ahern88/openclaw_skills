@@ -1,134 +1,175 @@
 ---
 name: fund-optimizer
-description: 基金组合优化与回测技能。基于历史数据（2019 年至今）使用现代投资组合理论（MPT）计算最优配置比例，支持年平衡策略回测。
+description: 基金组合优化与回测技能。支持天天基金实时数据、动态平衡策略（阈值 + 年度）、组合优化、自动组合生成。
 author: Assistant
-version: 1.1.0
-metadata: {"clawdbot":{"emoji":"📊","requires":{"bins":["python3","uv"]},"config":{"env":{"AKSHARE_CACHE_DIR":{"description":"数据缓存目录","default":"~/.openclaw/workspace/skills/fund-optimizer/cache","required":false}}}}}
+version: 2.0.0
+metadata: {"clawdbot":{"emoji":"📊","requires":{"bins":["python3","curl"]},"config":{"env":{"FUND_CACHE_DIR":{"description":"数据缓存目录","default":"~/.openclaw/workspace/skills/fund-optimizer/cache","required":false}}}}}
 ---
 
 # 基金组合优化与回测技能
 
-基于现代投资组合理论（Modern Portfolio Theory, MPT）和历史数据，提供基金组合优化和回测功能。
+基于**天天基金网实时数据**和现代投资组合理论（MPT），提供基金组合优化、回测和动态平衡功能。
 
 ## 功能
 
-### 组合优化
-- 📈 获取基金历史净值数据（2019 年至今）
+### 📊 组合优化
+- 📈 获取基金历史净值数据（2019 年至今，天天基金实时数据）
 - 🎯 计算有效前沿（Efficient Frontier）
 - 🏆 寻找最优夏普比率组合
 - 📊 生成风险分析报告
 - 💡 提供调仓建议
 
-### 组合回测
+### 🔄 组合回测
 - 📊 年化收益率（CAGR）
 - 📉 最大回撤（Max Drawdown）
 - 🎯 卡玛比率（Calmar Ratio）
-- 📅 年度收益列表
-- 📅 季度收益列表
+- 📅 年度/季度收益列表
 - 🔄 年平衡策略支持
+- 🎯 **动态平衡策略**（阈值±20% + 年度平衡）
+
+### 🤖 自动组合生成
+- 🎲 自动生成保守/平衡/进取三种组合
+- 🎯 考虑 QDII 限购因素
+- 📊 自动回测评分推荐最优
+
+### 📈 数据源
+- **天天基金网**: `fund.eastmoney.com/pingzhongdata/{基金代码}.js`
+- 自动缓存（7 天有效期）
+- 支持 17+ 只基金池
 
 ## 使用方法
 
-### 🎯 组合优化
+### 🚀 快速开始（推荐）
 
-#### 基础优化
+#### 1. 回测你的组合（天天基金数据）
 ```bash
-uv run {baseDir}/scripts/fund_optimizer.py optimize \
-  --funds 110017,002943,000216,217022 \
-  --weights 0.25,0.25,0.25,0.25
+python3 {baseDir}/scripts/fund_backtest_tiantian.py \
+  --funds 110017,159985,166301,217022,539001,000216,002849,002943,004011,004993,005561,006373 \
+  --weights 0.075,0.08,0.08,0.167,0.031,0.115,0.10,0.13,0.085,0.04,0.045,0.052 \
+  --start-date 2019-09-24
 ```
 
-#### 指定日期范围
+#### 2. 动态平衡策略（阈值±20% + 年度）
 ```bash
-uv run {baseDir}/scripts/fund_optimizer.py optimize \
-  --funds 110017,002943,000216 \
-  --weights 0.4,0.3,0.3 \
-  --start-date 2019-01-01 \
-  --end-date 2026-03-11
+python3 {baseDir}/scripts/fund_backtest_dynamic_rebalance.py \
+  --funds 110017,159985,166301,217022,539001,000216,002849,002943,004011,004993,005561,006373 \
+  --weights 0.075,0.08,0.08,0.167,0.031,0.115,0.10,0.13,0.085,0.04,0.045,0.052 \
+  --start-date 2019-09-24 \
+  --threshold 0.20 \
+  --rebalance-month 1
 ```
 
-#### 蒙特卡洛模拟（更精确）
+#### 3. 自动生成优化组合
 ```bash
-uv run {baseDir}/scripts/fund_optimizer.py optimize \
-  --funds 110017,002943,000216,217022 \
-  --weights 0.25,0.25,0.25,0.25 \
-  --simulations 10000
-```
-
-#### 查看详细报告
-```bash
-uv run {baseDir}/scripts/fund_optimizer.py report \
-  --funds 110017,002943,000216 \
-  --weights 0.3,0.4,0.3
+python3 {baseDir}/scripts/auto_portfolio_generator.py
 ```
 
 ### 📊 组合回测（年平衡策略）
 
 #### 基础回测
 ```bash
-uv run {baseDir}/scripts/fund_backtest.py \
+python3 {baseDir}/scripts/fund_backtest_tiantian.py \
   --funds 110017,002943,000216,217022 \
   --weights 0.25,0.25,0.25,0.25
 ```
 
 #### 指定回测期间
 ```bash
-uv run {baseDir}/scripts/fund_backtest.py \
+python3 {baseDir}/scripts/fund_backtest_tiantian.py \
   --funds 110017,002943,000216,217022 \
   --weights 0.25,0.25,0.25,0.25 \
-  --start-date 2019-09-01 \
-  --end-date 2026-03-13
+  --start-date 2019-09-24 \
+  --end-date 2026-03-14
 ```
 
 #### 自定义再平衡月份（如每年 6 月）
 ```bash
-uv run {baseDir}/scripts/fund_backtest.py \
+python3 {baseDir}/scripts/fund_backtest_tiantian.py \
   --funds 110017,002943,000216,217022 \
   --weights 0.25,0.25,0.25,0.25 \
   --rebalance-month 6
 ```
 
-#### 输出 JSON 格式（便于程序处理）
+#### 输出 JSON 格式
 ```bash
-uv run {baseDir}/scripts/fund_backtest.py \
+python3 {baseDir}/scripts/fund_backtest_tiantian.py \
   --funds 110017,002943,000216,217022 \
   --weights 0.25,0.25,0.25,0.25 \
   --json
 ```
 
-#### 自定义初始资金
+### 🔄 动态平衡策略
+
+#### 阈值±20% + 年度平衡
 ```bash
-uv run {baseDir}/scripts/fund_backtest.py \
+python3 {baseDir}/scripts/fund_backtest_dynamic_rebalance.py \
+  --funds 002943,159985,166301,000216 \
+  --weights 0.3,0.2,0.3,0.2 \
+  --threshold 0.20 \
+  --rebalance-month 1 \
+  --start-date 2019-09-24
+```
+
+#### 仅阈值平衡（无年度）
+```bash
+python3 {baseDir}/scripts/fund_backtest_dynamic_rebalance.py \
+  --funds 002943,159985,166301 \
+  --weights 0.4,0.3,0.3 \
+  --threshold 0.15 \
+  --rebalance-month 0
+```
+
+### 🎯 组合优化
+
+#### 基础优化
+```bash
+python3 {baseDir}/scripts/fund_optimizer.py optimize \
+  --funds 110017,002943,000216,217022 \
+  --weights 0.25,0.25,0.25,0.25
+```
+
+#### 蒙特卡洛模拟（10000 次）
+```bash
+python3 {baseDir}/scripts/fund_optimizer.py optimize \
   --funds 110017,002943,000216,217022 \
   --weights 0.25,0.25,0.25,0.25 \
-  --initial-capital 500000
+  --simulations 10000
 ```
 
 ## 参数说明
 
+### 回测器参数（fund_backtest_tiantian.py）
+
+| 参数 | 说明 | 必填 | 默认值 |
+|------|------|------|--------|
+| `--funds` | 基金代码列表，逗号分隔 | 是 | - |
+| `--weights` | 配置比例，逗号分隔（总和=1） | 是 | - |
+| `--start-date` | 回测开始日期 YYYY-MM-DD | 否 | 2019-01-01 |
+| `--end-date` | 回测结束日期 YYYY-MM-DD | 否 | 今天 |
+| `--rebalance-month` | 再平衡月份（1-12） | 否 | 1 |
+| `--initial-capital` | 初始资金 | 否 | 1000000 |
+| `--json` | 输出 JSON 格式 | 否 | False |
+
+### 动态平衡参数（fund_backtest_dynamic_rebalance.py）
+
+| 参数 | 说明 | 必填 | 默认值 |
+|------|------|------|--------|
+| `--funds` | 基金代码列表 | 是 | - |
+| `--weights` | 目标权重列表 | 是 | - |
+| `--threshold` | 阈值平衡触发点（如 0.20=20%） | 否 | 0.20 |
+| `--rebalance-month` | 年度平衡月份（0=禁用） | 否 | 1 |
+| `--start-date` | 回测开始日期 | 否 | 2019-01-01 |
+| `--json` | 输出 JSON 格式 | 否 | False |
+
 ### 优化器参数（fund_optimizer.py）
 
-| 参数 | 说明 | 必填 |
-|------|------|------|
-| `--funds` | 基金代码列表，逗号分隔 | 是 |
-| `--weights` | 初始配置比例，逗号分隔（总和=1） | 是 |
-| `--start-date` | 回测开始日期，默认 2019-01-01 | 否 |
-| `--end-date` | 回测结束日期，默认今天 | 否 |
-| `--simulations` | 蒙特卡洛模拟次数，默认 5000 | 否 |
-| `--risk-free-rate` | 无风险利率（年化），默认 0.03 | 否 |
-| `--json` | 输出 JSON 格式 | 否 |
-
-### 回测器参数（fund_backtest.py）
-
-| 参数 | 说明 | 必填 |
-|------|------|------|
-| `--funds` | 基金代码列表，逗号分隔 | 是 |
-| `--weights` | 配置比例，逗号分隔（总和=1） | 是 |
-| `--start-date` | 回测开始日期，默认 2019-01-01 | 否 |
-| `--end-date` | 回测结束日期，默认今天 | 否 |
-| `--rebalance-month` | 再平衡月份（1-12），默认 1 月 | 否 |
-| `--initial-capital` | 初始资金，默认 1,000,000 | 否 |
-| `--json` | 输出 JSON 格式 | 否 |
+| 参数 | 说明 | 必填 | 默认值 |
+|------|------|------|--------|
+| `--funds` | 基金代码列表 | 是 | - |
+| `--weights` | 初始配置比例 | 是 | - |
+| `--simulations` | 蒙特卡洛模拟次数 | 否 | 5000 |
+| `--start-date` | 回测开始日期 | 否 | 2019-01-01 |
+| `--json` | 输出 JSON 格式 | 否 | False |
 
 ## 输出说明
 
@@ -188,33 +229,43 @@ uv run {baseDir}/scripts/fund_backtest.py \
 ## 依赖
 
 ```bash
-uv pip install pandas numpy scipy akshare matplotlib
+pip install pandas numpy requests
 ```
 
 ## 注意事项
 
-1. **数据源**: 使用 AkShare 获取基金历史净值
-2. **缓存**: 数据会自动缓存，避免重复请求
-3. **QDII 基金**: 可能存在数据延迟
-4. **风险提示**: 历史数据不代表未来表现，优化结果仅供参考
+1. **数据源**: 天天基金网实时数据（`fund.eastmoney.com/pingzhongdata/`）
+2. **缓存**: 数据自动缓存 7 天，避免重复请求
+3. **QDII 基金**: 可能存在 1-2 天延迟，限购需控制权重（建议<10%）
+4. **动态平衡**: 阈值平衡最小间隔 5 个交易日，避免过度交易
+5. **风险提示**: 历史数据不代表未来表现，投资需谨慎
 
-## 示例：优化用户的基金组合
+## 脚本说明
 
-用户当前持仓 12 只基金，可以先按类别分组优化：
+| 脚本 | 功能 | 适用场景 |
+|------|------|---------|
+| `fund_backtest_tiantian.py` | 年平衡回测 | 基础回测，每年固定月份再平衡 |
+| `fund_backtest_dynamic_rebalance.py` | 动态平衡回测 | 阈值 + 年度双重平衡策略 |
+| `fund_optimizer.py` | 组合优化 | 寻找最优配置比例 |
+| `auto_portfolio_generator.py` | 自动生成组合 | 快速生成保守/平衡/进取组合 |
+
+## 示例：用户的 12 只基金组合
 
 ```bash
-# 债券类优化
-uv run scripts/fund_optimizer.py optimize \
-  --funds 110017,217022,004993 \
-  --weights 0.33,0.34,0.33
+# 回测当前组合
+python3 scripts/fund_backtest_tiantian.py \
+  --funds 110017,159985,166301,217022,539001,000216,002849,002943,004011,004993,005561,006373 \
+  --weights 0.075,0.08,0.08,0.167,0.031,0.115,0.10,0.13,0.085,0.04,0.045,0.052 \
+  --start-date 2019-09-24
 
-# A 股混合类优化
-uv run scripts/fund_optimizer.py optimize \
-  --funds 002943,004011,166301,002849 \
-  --weights 0.25,0.25,0.25,0.25
+# 动态平衡策略（20% 阈值）
+python3 scripts/fund_backtest_dynamic_rebalance.py \
+  --funds 110017,159985,166301,217022,539001,000216,002849,002943,004011,004993,005561,006373 \
+  --weights 0.075,0.08,0.08,0.167,0.031,0.115,0.10,0.13,0.085,0.04,0.045,0.052 \
+  --threshold 0.20 \
+  --rebalance-month 1 \
+  --start-date 2019-09-24
 
-# QDII 类优化
-uv run scripts/fund_optimizer.py optimize \
-  --funds 017641,539001,006373,539002 \
-  --weights 0.25,0.25,0.25,0.25
+# 自动生成优化组合
+python3 scripts/auto_portfolio_generator.py
 ```
