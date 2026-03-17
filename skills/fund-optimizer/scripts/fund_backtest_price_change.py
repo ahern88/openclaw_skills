@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-基金组合回测工具 - 动态平衡策略版
-支持：
-1. 阈值平衡：当任何基金涨跌幅超过±20% 时触发再平衡
-2. 年度平衡：每年固定月份再平衡
+基金组合回测工具 - 涨跌幅平衡策略
+当任何基金自上次再平衡以来涨跌幅超过阈值（如±8%）时触发再平衡
+同时支持年度再平衡
 """
 
 import argparse
@@ -11,26 +10,25 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 import subprocess
 
 import numpy as np
 import pandas as pd
 
 
-class DynamicRebalanceBacktester:
-    """动态平衡策略回测器"""
+class PriceChangeRebalancer:
+    """涨跌幅平衡策略回测器"""
     
     def __init__(self, fund_codes, weights, start_date="2019-01-01", end_date=None,
-                 rebalance_month=1, threshold=0.20, initial_capital=1000000,
-                 threshold_mode="price_change", cache_dir="~/.openclaw/workspace/skills/fund-optimizer/cache"):
+                 rebalance_month=1, price_threshold=0.08, initial_capital=1000000,
+                 cache_dir="~/.openclaw/workspace/skills/fund-optimizer/cache"):
         self.fund_codes = fund_codes
         self.target_weights = np.array(weights)
         self.start_date = start_date
         self.end_date = end_date or datetime.now().strftime("%Y-%m-%d")
         self.rebalance_month = rebalance_month
-        self.threshold = threshold  # 再平衡阈值（如 20%）
-        self.threshold_mode = threshold_mode  # "price_change" 或 "weight_deviation"
+        self.price_threshold = price_threshold  # 涨跌幅阈值（如 8%）
         self.initial_capital = initial_capital
         self.cache_dir = Path(cache_dir).expanduser()
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -53,7 +51,6 @@ class DynamicRebalanceBacktester:
             except:
                 pass
         
-        # 调用天天基金接口
         import time
         all_data = []
         page_index = 1
@@ -142,85 +139,70 @@ class DynamicRebalanceBacktester:
                 dates.append(month_dates[0])
         return dates
     
-    def check_threshold_rebalance(self, current_weights, current_nav, date_idx):
-        """检查是否需要阈值再平衡"""
-        if self.threshold_mode == "weight_deviation":
-            # 模式 1：权重偏离目标权重
-            deviation = np.abs(current_weights - self.target_weights)
-            max_deviation = np.max(deviation)
-            return max_deviation >= self.threshold, deviation
-        else:
-            # 模式 2：基金涨跌幅（从上次平衡价）
-            if not hasattr(self, 'last_rebalance_nav') or self.last_rebalance_nav is None:
-                return False, np.zeros(len(self.fund_codes))
-            
-            # 计算每个基金从上次平衡后的涨跌幅
-            price_changes = (current_nav - self.last_rebalance_nav) / self.last_rebalance_nav
-            abs_changes = np.abs(price_changes)
-            max_change = np.max(abs_changes)
-            
-            return max_change >= self.threshold, price_changes
+    def check_price_change_rebalance(self, current_nav, base_nav):
+        """检查是否有基金涨跌幅超过阈值"""
+        # 计算各基金自基准日以来的涨跌幅
+        price_changes = (current_nav - base_nav) / base_nav
+        
+        # 检查是否有基金超过阈值
+        max_change = np.max(np.abs(price_changes))
+        exceed = max_change >= self.price_threshold
+        
+        if exceed:
+            max_fund_idx = np.argmax(np.abs(price_changes))
+            max_fund = self.fund_codes[max_fund_idx]
+            max_change_pct = price_changes.iloc[max_fund_idx] * 100
+            return True, max_fund, max_change_pct
+        return False, None, 0
     
     def run_backtest(self):
-        """运行动态平衡回测"""
+        """运行涨跌幅平衡回测"""
         if self.nav_data is None:
             self.load_all_funds_data()
         
-        # 获取年度再平衡日期
         annual_dates = set(self.get_annual_rebalance_dates())
         
         # 初始化
         capital = self.initial_capital
-        current_weights = self.target_weights.copy()
         portfolio_values = []
         portfolio_dates = []
         
-        # 持仓份额（用于计算实际权重）
-        # 假设初始按目标权重分配
+        # 初始持仓：按目标权重分配
         initial_nav = self.nav_data.iloc[0]
         shares = (capital * self.target_weights) / initial_nav
         
+        # 记录再平衡基准（用于计算涨跌幅）
         last_rebalance_date = self.nav_data.index[0]
-        self.last_rebalance_nav = initial_nav.copy()  # 保存为实例变量
+        last_rebalance_nav = initial_nav.copy()
         
-        print(f"\n🚀 动态平衡回测")
+        print(f"\n🚀 涨跌幅平衡回测")
         print(f"   初始资金：{self.initial_capital:,.0f} 元")
-        print(f"   平衡策略：阈值±{self.threshold*100:.0f}% ({self.threshold_mode}) + 每年{self.rebalance_month} 月")
+        print(f"   平衡策略：涨跌幅±{self.price_threshold*100:.0f}% + 每年{self.rebalance_month} 月")
         print(f"   交易日数：{len(self.nav_data)}")
         
         rebalance_count = 0
-        threshold_count = 0
+        price_change_count = 0
         annual_count = 0
         
         for i, (date, nav) in enumerate(self.nav_data.iterrows()):
-            # 计算当前市值和权重
+            # 计算当前市值
             current_values = shares * nav
             total_value = current_values.sum()
-            current_weights = current_values / total_value
             
             # 检查是否需要再平衡
             need_rebalance = False
             rebalance_reason = ""
-            days_since_last = (date - last_rebalance_date).days
             
-            # 1. 先检查阈值再平衡（至少间隔 5 个交易日）
+            # 1. 先检查涨跌幅再平衡（至少间隔 5 个交易日）
+            days_since_last = (date - last_rebalance_date).days
             if days_since_last >= 5:
-                need, metric = self.check_threshold_rebalance(current_weights, nav, i)
+                need, fund, change = self.check_price_change_rebalance(nav, last_rebalance_nav)
                 if need:
                     need_rebalance = True
-                    if self.threshold_mode == "price_change":
-                        max_idx = np.argmax(np.abs(metric))
-                        rebalance_reason = "阈值平衡 ({} {}{:.1f}%)".format(
-                            self.fund_codes[max_idx], 
-                            "📈" if metric[max_idx] > 0 else "📉",
-                            metric[max_idx]*100)
-                    else:
-                        max_idx = np.argmax(metric)
-                        rebalance_reason = "阈值平衡 ({} 偏离{:.1f}%)".format(
-                            self.fund_codes[max_idx], metric[max_idx]*100)
-                    threshold_count += 1
+                    rebalance_reason = "涨跌幅平衡 ({} {:+.1f}%)".format(fund, change)
+                    price_change_count += 1
             
-            # 2. 再检查年度再平衡（优先级更高，覆盖阈值）
+            # 2. 再检查年度再平衡
             if date in annual_dates and date > last_rebalance_date and not need_rebalance:
                 need_rebalance = True
                 rebalance_reason = "年度平衡"
@@ -232,15 +214,14 @@ class DynamicRebalanceBacktester:
                 self.rebalance_log.append({
                     'date': date.strftime('%Y-%m-%d'),
                     'reason': rebalance_reason,
-                    'type': 'annual' if '年度' in rebalance_reason else 'threshold',
-                    'total_value': total_value,
-                    'deviation': np.max(np.abs(current_weights - self.target_weights)) * 100
+                    'type': 'price_change' if '涨跌幅' in rebalance_reason else 'annual',
+                    'total_value': total_value
                 })
                 
                 # 再平衡：调整份额到目标权重
                 shares = (total_value * self.target_weights) / nav
                 last_rebalance_date = date
-                self.last_rebalance_nav = nav.copy()  # 更新平衡价
+                last_rebalance_nav = nav.copy()
             
             # 记录组合市值
             portfolio_values.append(total_value)
@@ -251,7 +232,7 @@ class DynamicRebalanceBacktester:
         print(f"\n✅ 回测完成")
         print(f"   再平衡次数：{rebalance_count} 次")
         print(f"   - 年度平衡：{annual_count} 次")
-        print(f"   - 阈值平衡：{threshold_count} 次")
+        print(f"   - 涨跌幅平衡：{price_change_count} 次")
         print(f"   最终市值：{portfolio_values[-1]:,.0f} 元")
         
         return self.calculate_metrics()
@@ -287,19 +268,6 @@ class DynamicRebalanceBacktester:
             dd = ((y_nav - y_nav.cummax()) / y_nav.cummax()).min()
             yearly.append({'year': year, 'return': ret, 'max_drawdown': dd})
         
-        # 季度收益
-        quarterly = []
-        for year in sorted(set(self.portfolio_values.index.year)):
-            for q in range(1, 5):
-                q_nav = self.portfolio_values[
-                    (self.portfolio_values.index.year == year) &
-                    (self.portfolio_values.index.month >= (q-1)*3+1) &
-                    (self.portfolio_values.index.month <= q*3)
-                ]
-                if len(q_nav) < 2:
-                    continue
-                quarterly.append({'year': year, 'quarter': f'Q{q}', 'return': (q_nav.iloc[-1]-q_nav.iloc[0])/q_nav.iloc[0]})
-        
         return {
             'total_return': total_return,
             'cagr': cagr,
@@ -312,18 +280,17 @@ class DynamicRebalanceBacktester:
             'initial_capital': self.initial_capital,
             'final_value': self.portfolio_values.iloc[-1],
             'yearly_returns': yearly,
-            'quarterly_returns': quarterly,
             'rebalance_log': self.rebalance_log,
             'rebalance_count': len(self.rebalance_log),
             'fund_codes': self.fund_codes,
-            'weights': self.weights.tolist() if hasattr(self, 'weights') else self.target_weights.tolist()
+            'weights': self.target_weights.tolist()
         }
     
     def generate_report(self, m):
         """生成回测报告"""
         lines = [
             "=" * 70,
-            "📊 基金组合回测（动态平衡策略）",
+            "📊 基金组合回测（涨跌幅平衡策略）",
             "=" * 70,
             "",
             "📋 配置:",
@@ -333,11 +300,11 @@ class DynamicRebalanceBacktester:
         
         lines.extend([
             "", "回测：{} ~ {}".format(self.start_date, self.end_date),
-            "策略：阈值±{:.0f}% + 每年{} 月再平衡".format(self.threshold*100, self.rebalance_month),
-            "再平衡：{} 次 (年度{} 次，阈值{} 次)".format(
+            "策略：涨跌幅±{:.0f}% + 每年{} 月再平衡".format(self.price_threshold*100, self.rebalance_month),
+            "再平衡：{} 次 (年度{} 次，涨跌幅{} 次)".format(
                 m['rebalance_count'],
                 sum(1 for r in m['rebalance_log'] if r['type']=='annual'),
-                sum(1 for r in m['rebalance_log'] if r['type']=='threshold')
+                sum(1 for r in m['rebalance_log'] if r['type']=='price_change')
             ),
             "资金：{:,} → {:,} 元".format(int(m['initial_capital']), int(m['final_value'])),
             "天数：{} ({:.2f} 年)".format(m['total_days'], m['total_years']),
@@ -358,24 +325,20 @@ class DynamicRebalanceBacktester:
         # 再平衡记录（最近 10 次）
         lines.extend(["", "🔄 最近再平衡记录:", "-" * 50])
         for r in m['rebalance_log'][-10:]:
-            lines.append("  {} {} (偏离{:.1f}%)".format(
-                r['date'], r['reason'], r['deviation']))
+            lines.append("  {}".format(r['date'], r['reason']))
         
         lines.extend(["", "=" * 70, "⚠️  历史数据不代表未来", "=" * 70])
         return "\n".join(lines)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='基金组合动态平衡回测')
+    parser = argparse.ArgumentParser(description='基金组合涨跌幅平衡回测')
     parser.add_argument('--funds', required=True, help='基金代码，逗号分隔')
     parser.add_argument('--weights', required=True, help='权重，逗号分隔')
     parser.add_argument('--start-date', default='2019-01-01', help='开始日期')
     parser.add_argument('--end-date', help='结束日期')
     parser.add_argument('--rebalance-month', type=int, default=1, help='年度平衡月份')
-    parser.add_argument('--threshold', type=float, default=0.20, help='阈值平衡触发点（默认 20%）')
-    parser.add_argument('--threshold-mode', type=str, default='price_change', 
-                        choices=['price_change', 'weight_deviation'],
-                        help='阈值模式：price_change=基金涨跌幅，weight_deviation=权重偏离')
+    parser.add_argument('--threshold', type=float, default=0.08, help='涨跌幅阈值（默认 8%）')
     parser.add_argument('--initial-capital', type=float, default=1000000, help='初始资金')
     parser.add_argument('--json', action='store_true', help='输出 JSON')
     
@@ -392,14 +355,13 @@ def main():
         print("❌ 基金数与权重数不匹配")
         sys.exit(1)
     
-    bt = DynamicRebalanceBacktester(
+    bt = PriceChangeRebalancer(
         fund_codes=funds,
         weights=weights,
         start_date=args.start_date,
         end_date=args.end_date,
         rebalance_month=args.rebalance_month,
-        threshold=args.threshold,
-        threshold_mode=args.threshold_mode,
+        price_threshold=args.threshold,
         initial_capital=args.initial_capital
     )
     
